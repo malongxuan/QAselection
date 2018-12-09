@@ -1,5 +1,5 @@
 # QAselection
-# For Question answering sentence selection(wikiQA,TREC-QA,InsuranceQA,SelQA.etc)
+# For Question answering sentence selection(wikiQA,TREC-QA,InsuranceQA,SelQA,etc.)
 
 # theano 0.82
 # python 2.7
