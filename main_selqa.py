@@ -3,16 +3,11 @@ import numpy as np
 import logging
 import sys
 import os
-import h5py  #This is the h5py package, a Python interface to the HDF5 scientific data format.
+import h5py
 import argparse
 from model_factory import ModelFactory
 from data_process import Vocab, DataGenerator, ModelParam
-###the change I can do is
-###1, test different attention format in class _Attention, etc +/-/euc/WX+WH, this could be novel point
-###2, test different mode in merge function, etc concat/+/-
-###3, test different task, etc insuranceQA/CNN/small-10
-#http://keras-cn.readthedocs.io/en/latest/backend/
-#$HOME/.keras/keras.json as vim /home/iot/.keras/keras.json change last "backend": "tensorflow" to "theano"
+
 np.random.seed(1337)
 
 log = logging.getLogger("output")
@@ -38,9 +33,6 @@ parser.add_argument('-k_q',"--k_value_ques",type=float,default=10,help='k value 
 parser.add_argument('-k_a',"--k_value_ans",type=float,default=10,help='k value in k_max or k_threshold for answer attention')
 parser.add_argument('-b',"--batch_size",type=int,default=3,help='batch_size')
 parser.add_argument('-p',"--pre_train",type=int,default=5,help='pre_train')
-#THEANO_FLAGS="device=gpu0,floatX=float32,dnn.conv.algo_bwd_filter=deterministic,dnn.conv.algo_bwd_data=deterministic" python main.py -t wikiqa -m listwise -d 300 -e 10 -l 0.001 -b 5
-#THEANO_FLAGS="device=gpu0,floatX=float32,dnn.conv.algo_bwd_filter=deterministic,dnn.conv.algo_bwd_data=deterministic" 
-#python main.py -t wikiqa -m k_max -d 300 -e 5 -l 0.001 -b 5 -k_q 5 -k_a 10 -p 5
 
 global_mark = "wikiqa" + "_" +"listwise" 
 
@@ -84,10 +76,7 @@ def task_data_ready(task,model_param):  #get all pre processed data
 	if task == "wikiqa":
 		vocab_all = Vocab("./data/wikiqa/vocab_wiki.txt", max_size=80000)
 		data_generator = DataGenerator(vocab_all, model_param,"./data/wikiqa/wiki_answer_train.pkl") 
-		#.pkl is created by preprocess.py/Util.generate_answer  #random answer from train data for batch training
 		embedding_file = "./data/wikiqa/wikiqa_glovec.txt"
-		#embedding_file = "./data/wikiqa/wikiqa_glovec_100.txt"
-		#"/home/hxt/anaconda2/temp/WikiQAprocessedData/.....txt/bin" will cause KeyError
 		dev_data = data_generator.EvaluateGenerate("./data/wikiqa/wiki_dev.pkl")
 		test_data = data_generator.EvaluateGenerate("./data/wikiqa/wiki_test.pkl")	
 	elif task == "trecqa":
@@ -96,13 +85,13 @@ def task_data_ready(task,model_param):  #get all pre processed data
 		embedding_file = "./data/trecqa/trecqa_glovec.txt"
 		dev_data = data_generator.EvaluateGenerate("./data/trecqa/trec_dev.pkl")
 		test_data = data_generator.EvaluateGenerate("./data/trecqa/trec_test.pkl")
-	elif task == "insqa":#13201=43*307
+	elif task == "insqa":
 		vocab_all = Vocab("./data/insqa/vocab_insqa.txt", max_size=80000)
 		data_generator = DataGenerator(vocab_all, model_param, "./data/insqa/insqa_answer_train.pkl")
 		embedding_file = "./data/insqa/insqa_glovec.txt"
 		dev_data = data_generator.EvaluateGenerate("./data/insqa/insqa_dev.pkl")
 		test_data = data_generator.EvaluateGenerate("./data/insqa/insqa_test.pkl")
-	elif task == "selqa":#13201=43*307
+	elif task == "selqa":
 		vocab_all = Vocab("./data/selqa/vocab_selqa.txt", max_size=80000)
 		data_generator = DataGenerator(vocab_all, model_param, "./data/selqa/selqa_answer_train.pkl")
 		embedding_file = "./data/selqa/selqa_glovec.txt"
@@ -113,21 +102,18 @@ def task_data_ready(task,model_param):  #get all pre processed data
 
 
 def main(args):
-	#THEANO_FLAGS="device=gpu0,floatX=float32,dnn.conv.algo_bwd_filter=deterministic,dnn.conv.algo_bwd_data=deterministic" python main.py -t wikiqa -m k_max -d 300 -e 5 -l 0.001 -b 5 -k_q 5 -k_a 10 -p 5
 	global_mark = args.task + "_" + args.model
 	print str(args.pre_train)+" model"
 	if args.task == "wikiqa":  #ModelParam is just a tuple format, random_size means the neg_answ pool size
-		model_param = ModelParam(hidden_dim=args.hidden_dim, enc_timesteps=24, dec_timesteps=90, batch_size=args.batch_size, random_size=15, lr=args.lr, k_value_ques=args.k_value_ques,k_value_ans=args.k_value_ans)
+		model_param = ModelParam(hidden_dim=args.hidden_dim, enc_timesteps=12, dec_timesteps=50, batch_size=args.batch_size, random_size=15, lr=args.lr, k_value_ques=args.k_value_ques,k_value_ans=args.k_value_ans)
 	elif args.task == "trecqa":
-		model_param = ModelParam(hidden_dim=args.hidden_dim, enc_timesteps=24, dec_timesteps=90, batch_size=args.batch_size, random_size=15, lr=args.lr, k_value_ques=args.k_value_ques,k_value_ans=args.k_value_ans)
+		model_param = ModelParam(hidden_dim=args.hidden_dim, enc_timesteps=12, dec_timesteps=50, batch_size=args.batch_size, random_size=15, lr=args.lr, k_value_ques=args.k_value_ques,k_value_ans=args.k_value_ans)
 	elif args.task == "insqa":
 		model_param = ModelParam(hidden_dim=args.hidden_dim, enc_timesteps=12, dec_timesteps=50, batch_size=args.batch_size, random_size=50, lr=args.lr, k_value_ques=args.k_value_ques,k_value_ans=args.k_value_ans)
-	elif args.task == "selqa":#avg 13/28  max 41/312
-		model_param = ModelParam(hidden_dim=args.hidden_dim, enc_timesteps=20, dec_timesteps=50, batch_size=args.batch_size, random_size=15, lr=args.lr, k_value_ques=args.k_value_ques,k_value_ans=args.k_value_ans)
+	elif args.task == "selqa":
+		model_param = ModelParam(hidden_dim=args.hidden_dim, enc_timesteps=12, dec_timesteps=50, batch_size=args.batch_size, random_size=15, lr=args.lr, k_value_ques=args.k_value_ques,k_value_ans=args.k_value_ans)
 
 	logging.info(model_param.__str__())
-	#INFO ModelParam(hidden_dim=300, enc_timesteps=25, dec_timesteps=90, batch_size=5, random_size=15, k_value_ques=5.0, k_value_ans=10.0, lr=0.001)
-	#get data and model
 	vocab_all,data_generator,embedding_file,dev_data,test_data = task_data_ready(args.task,model_param)
 	
 	train_model, predict_model = ModelFactory.get_model(model_param, embedding_file, vocab_all.NumIds(),model_type=args.model) 
@@ -145,9 +131,7 @@ def main(args):
 			question_len = d["ques_len"]
 			ans_len = d["ans_len"]
 			sims = predict_model.predict([question,answers,question_len,ans_len],batch_size=len(question))
-			#each time get one QA-pairs(1 Q and multi answs) socre
 			sims = sims[:,0]
-			#from big to small, sort
 			rank_index = np.argsort(sims).tolist()[::-1]
 			score = 0.0
 			count = 0.0
@@ -178,13 +162,10 @@ def main(args):
 		result_log(global_mark+" evaluate on "+ flag + " data at epoch "+str(epoch)+' MRR: %f' % MRR)
 		return Top1,MAP,MRR
 
-
-	##############dynamic-clip attention load listwise model as pre-train model
 	if args.model != "listwise":
 		reload_epoch = args.pre_train
 		assert os.path.exists('model/train_weights_epoch_%s.h5' % (str(reload_epoch)+"_"+args.task+"_listwise")), "please pre-train listwise approach"
-		specific_load_epoch(train_model,str(reload_epoch)+"_"+args.task+"_listwise","train")
-	##############		
+		specific_load_epoch(train_model,str(reload_epoch)+"_"+args.task+"_listwise","train")	
 	best_epoch = 0
 	best_map = 0
 	score_list = []
@@ -204,9 +185,7 @@ def main(args):
 
 		logging.info('Fitting epoch %d' % i)
 
-		train_model.fit([questions, answers,question_len,answer_len], label,nb_epoch=1, batch_size=model_param.batch_size, validation_split=0, verbose=1,shuffle=True)		   
-		#specific_save_epoch(train_model,i, prefix="train",global_mark_copy = global_mark)
-		#specific_save_epoch(predict_model,i, prefix="predict",global_mark_copy = global_mark)
+		train_model.fit([questions, answers,question_len,answer_len], label,nb_epoch=1, batch_size=model_param.batch_size, validation_split=0, verbose=1,shuffle=True)
 
 		####evaluate 
 		dev_top1, dev_map,dev_mrr = data_evaluate(i,dev_data,"dev")
